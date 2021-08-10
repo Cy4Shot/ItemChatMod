@@ -1,0 +1,16 @@
+{
+	"minVersion": "0.8",
+	"required": true,
+	"compatibilityLevel": "JAVA_8",
+	"refmap": "itemchat.refmap.json",
+	"package": "com.cy4.itemchat.mixin",
+	"mixins": [
+		"ItemStackMixin"
+	],
+	"client": [
+		"client.ItemRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

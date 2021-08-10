@@ -1,0 +1,29 @@
+modLoader="javafml" 
+loaderVersion="[36,)"
+license="CC0"
+
+[[mods]] 
+modId="itemchat" 
+version="${file.jarVersion}" 
+displayName="Item Chat" 
+logoFile="itemchat.png" 
+credits="Feature from Quark (a mod by Vaskii)!" 
+authors="Cy4" 
+
+description='''
+This mod adds a feature from Quark into a standalone mod.
+'''
+
+[[dependencies.itemchat]] 
+    modId="forge"
+    mandatory=true
+    versionRange="[36,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.itemchat]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.16.5,1.17)"
+    ordering="NONE"
+    side="BOTH"
