@@ -2,10 +2,7 @@ package com.cy4.itemchat.network;
 
 import com.cy4.itemchat.ItemChat;
 
-import net.minecraft.network.protocol.Packet;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 
