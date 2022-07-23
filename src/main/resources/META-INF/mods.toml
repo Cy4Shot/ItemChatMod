@@ -1,5 +1,5 @@
 modLoader="javafml" 
-loaderVersion="[36,)"
+loaderVersion="[38,)"
 license="CC0"
 
 [[mods]] 
@@ -14,16 +14,16 @@ description='''
 This mod adds a feature from Quark into a standalone mod.
 '''
 
-[[dependencies.itemchat]] 
+[[dependencies.itemchat]]
     modId="forge"
     mandatory=true
-    versionRange="[36,)"
-    ordering="NONE"
+    versionRange="[38.0.0,)"
+    ordering="AFTER"
     side="BOTH"
 
 [[dependencies.itemchat]]
     modId="minecraft"
     mandatory=true
-    versionRange="[1.16.5,1.17)"
+    versionRange="[1.18.1,1.18.2]"
     ordering="NONE"
     side="BOTH"

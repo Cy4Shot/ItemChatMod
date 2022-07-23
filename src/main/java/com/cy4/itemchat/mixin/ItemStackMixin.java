@@ -7,17 +7,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.cy4.itemchat.ItemChatFeature;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.text.IFormattableTextComponent;
-import net.minecraft.util.text.ITextComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.item.ItemStack;
 
 @Mixin(ItemStack.class)
 public class ItemStackMixin {
 
-	@Inject(method = "getTextComponent()Lnet/minecraft/util/text/ITextComponent;", at = @At("RETURN"), cancellable = true)
-	private void getTextComponent(CallbackInfoReturnable<ITextComponent> callbackInfoReturnable) {
-		System.out.println("Stack component created");
+	@Inject(method = "getDisplayName", at = @At("RETURN"), cancellable = true)
+	private void getHoverName(CallbackInfoReturnable<Component> callbackInfoReturnable) {
 		callbackInfoReturnable.setReturnValue(ItemChatFeature.createStackComponent((ItemStack) (Object) this,
-				(IFormattableTextComponent) callbackInfoReturnable.getReturnValue()));
+				(MutableComponent) callbackInfoReturnable.getReturnValue()));
 	}
 }

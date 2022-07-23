@@ -4,39 +4,41 @@ import java.util.List;
 
 import com.cy4.itemchat.network.LinkItemMessage;
 import com.cy4.itemchat.network.ModNetwork;
-import com.mojang.blaze3d.systems.RenderSystem;
 
-import net.minecraft.block.Blocks;
-import net.minecraft.client.GameSettings;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
+
+import net.minecraft.client.GuiMessage;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ChatLine;
-import net.minecraft.client.gui.IGuiEventListener;
-import net.minecraft.client.gui.IngameGui;
-import net.minecraft.client.gui.NewChatGui;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.inventory.ContainerScreen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.util.InputMappings;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.inventory.container.Slot;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.play.ServerPlayNetHandler;
-import net.minecraft.server.management.PlayerList;
-import net.minecraft.util.IReorderingProcessor;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.ChatType;
-import net.minecraft.util.text.IFormattableTextComponent;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.StringTextComponent;
-import net.minecraft.util.text.Style;
-import net.minecraft.util.text.TranslationTextComponent;
-import net.minecraft.util.text.event.HoverEvent;
+import net.minecraft.client.Options;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.server.players.PlayerList;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.ClientChatEvent;
-import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.ServerChatEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -48,27 +50,28 @@ public class ItemChatFeature {
 
 	@SubscribeEvent
 	@OnlyIn(Dist.CLIENT)
-	public static void keyboardEvent(GuiScreenEvent.KeyboardKeyPressedEvent.Pre event) {
+	public static void keyboardEvent(ScreenEvent.KeyboardKeyPressedEvent.Pre event) {
 		Minecraft mc = Minecraft.getInstance();
-		GameSettings settings = mc.gameSettings;
-		if (InputMappings.isKeyDown(mc.getMainWindow().getHandle(), settings.keyBindChat.getKey().getKeyCode())
-				&& event.getGui() instanceof ContainerScreen && Screen.hasShiftDown()) {
-			ContainerScreen<?> gui = (ContainerScreen<?>) event.getGui();
+		Options settings = mc.options;
+		Screen screen = event.getScreen();
+		if(InputConstants.isKeyDown(mc.getWindow().getWindow(), settings.keyChat.getKey().getValue())
+				&& screen instanceof AbstractContainerScreen && Screen.hasShiftDown()) {
+			AbstractContainerScreen<?> gui = (AbstractContainerScreen<?>) screen;
 
-			List<? extends IGuiEventListener> children = gui.getEventListeners();
-			for (IGuiEventListener c : children)
-				if (c instanceof TextFieldWidget) {
-					TextFieldWidget tf = (TextFieldWidget) c;
-					if (tf.isFocused())
+			List<? extends GuiEventListener> children = gui.children();
+			for(GuiEventListener c : children)
+				if(c instanceof EditBox) {
+					EditBox tf = (EditBox) c;
+					if(tf.isFocused())
 						return;
 				}
 
 			Slot slot = gui.getSlotUnderMouse();
-			if (slot != null && slot.inventory != null) {
-				ItemStack stack = slot.getStack();
+			if(slot != null && slot.container != null) {
+				ItemStack stack = slot.getItem();
 
 				if (!stack.isEmpty()
-						&& !MinecraftForge.EVENT_BUS.post(new ClientChatEvent(stack.getTextComponent().getString()))) {
+						&& !MinecraftForge.EVENT_BUS.post(new ClientChatEvent(stack.getDisplayName().getString()))) {
 					ModNetwork.CHANNEL.sendToServer(new LinkItemMessage(stack));
 					event.setCanceled(true);
 				}
@@ -76,26 +79,28 @@ public class ItemChatFeature {
 		}
 	}
 
-	public static void linkItem(PlayerEntity player, ItemStack item) {
+	public static void linkItem(Player player, ItemStack item) {
+		if(!renderItemsInChat)
+			return;
 
-		if (!item.isEmpty() && player instanceof ServerPlayerEntity) {
-			ITextComponent comp = item.getTextComponent();
-			ITextComponent fullComp = new TranslationTextComponent("chat.type.text", player.getDisplayName(), comp);
+		if(!item.isEmpty() && player instanceof ServerPlayer) {
+			Component comp = item.getDisplayName();
+			Component fullComp = new TranslatableComponent("chat.type.text", player.getDisplayName(), comp);
 
-			PlayerList players = ((ServerPlayerEntity) player).server.getPlayerList();
+			PlayerList players = ((ServerPlayer) player).server.getPlayerList();
 
-			ServerChatEvent event = new ServerChatEvent((ServerPlayerEntity) player, comp.getString(), fullComp);
+			ServerChatEvent event = new ServerChatEvent((ServerPlayer) player, comp.getString(), fullComp);
 			if (!MinecraftForge.EVENT_BUS.post(event)) {
-				players.func_232641_a_(fullComp, ChatType.CHAT, player.getUniqueID());
+				players.broadcastMessage(event.getComponent(), ChatType.CHAT, player.getUUID());
 
-				ServerPlayNetHandler handler = ((ServerPlayerEntity) player).connection;
-				int threshold = handler.chatSpamThresholdCount;
+				ServerGamePacketListenerImpl handler = ((ServerPlayer) player).connection;
+				int threshold = handler.chatSpamTickCount;
 				threshold += 20;
 
-				if (threshold > 200 && !players.canSendCommands(player.getGameProfile()))
-					handler.onDisconnect(new TranslationTextComponent("disconnect.spam"));
+				if (threshold > 200 && !players.isOp(player.getGameProfile()))
+					handler.onDisconnect(new TranslatableComponent("disconnect.spam"));
 
-				handler.chatSpamThresholdCount = threshold;
+				handler.chatSpamTickCount = threshold;
 			}
 		}
 
@@ -103,19 +108,19 @@ public class ItemChatFeature {
 
 	private static int chatX, chatY;
 
-	public static IFormattableTextComponent createStackComponent(ItemStack stack, IFormattableTextComponent component) {
+	public static MutableComponent createStackComponent(ItemStack stack, MutableComponent component) {
 		if (!renderItemsInChat)
 			return component;
+
 		Style style = component.getStyle();
 		if (stack.getCount() > 64) {
 			ItemStack copyStack = stack.copy();
 			copyStack.setCount(64);
-			style = style
-					.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ITEM, new HoverEvent.ItemHover(copyStack)));
-			component.mergeStyle(style);
+			style = style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ITEM, new HoverEvent.ItemStackInfo(copyStack)));
+			component.withStyle(style);
 		}
 
-		IFormattableTextComponent out = new StringTextComponent("   ");
+		MutableComponent out = new TextComponent("   ");
 		out.setStyle(style);
 		return out.append(component);
 	}
@@ -134,29 +139,26 @@ public class ItemChatFeature {
 			return;
 
 		Minecraft mc = Minecraft.getInstance();
-		IngameGui gameGui = mc.ingameGUI;
-		NewChatGui chatGui = gameGui.getChatGUI();
+		Gui gameGui = mc.gui;
+		ChatComponent chatGui = gameGui.getChat();
 		if (event.getType() == RenderGameOverlayEvent.ElementType.CHAT) {
-			int updateCounter = gameGui.getTicks();
-			List<ChatLine<IReorderingProcessor>> lines = chatGui.drawnChatLines;
-			int shift = chatGui.scrollPos;
+			int updateCounter = gameGui.getGuiTicks();
+			List<GuiMessage<FormattedCharSequence>> lines = chatGui.trimmedMessages;
+			int shift = chatGui.chatScrollbarPos;
 
 			int idx = shift;
 
-			while (idx < lines.size() && (idx - shift) < chatGui.getLineCount()) {
-				ChatLine<IReorderingProcessor> line = lines.get(idx);
+			while (idx < lines.size() && (idx - shift) < chatGui.getLinesPerPage()) {
+				GuiMessage<FormattedCharSequence> line = lines.get(idx);
 				StringBuilder before = new StringBuilder();
 
-				IReorderingProcessor lineProperties = line.getLineString();
+				FormattedCharSequence lineProperties = line.getMessage();
 
 				int captureIndex = idx;
-				// TODO: This patch gets stuff working,
-				// but we probably want to find a better way to detect the position.
 				lineProperties.accept((counter_, style, character) -> {
 					String sofar = before.toString();
 					if (sofar.endsWith("    ")) {
-						render(mc, chatGui, updateCounter, sofar.substring(0, sofar.length() - 3), line,
-								captureIndex - shift, style);
+						render(mc, event.getMatrixStack(), chatGui, updateCounter, sofar.substring(0, sofar.length() - 3), line, captureIndex - shift, style);
 						return false;
 					}
 					before.append((char) character);
@@ -168,44 +170,46 @@ public class ItemChatFeature {
 		}
 	}
 
-	@SuppressWarnings("deprecation")
 	@OnlyIn(Dist.CLIENT)
-	private static void render(Minecraft mc, NewChatGui chatGui, int updateCounter, String before,
-			ChatLine<IReorderingProcessor> line, int lineHeight, Style style) {
+	private static void render(Minecraft mc, PoseStack pose, ChatComponent chatGui, int updateCounter, String before, GuiMessage<FormattedCharSequence> line, int lineHeight, Style style) {
 		HoverEvent hoverEvent = style.getHoverEvent();
 		if (hoverEvent != null && hoverEvent.getAction() == HoverEvent.Action.SHOW_ITEM) {
-			HoverEvent.ItemHover contents = hoverEvent.getParameter(HoverEvent.Action.SHOW_ITEM);
+			HoverEvent.ItemStackInfo contents = hoverEvent.getValue(HoverEvent.Action.SHOW_ITEM);
 
-			ItemStack stack = contents != null ? contents.createStack() : ItemStack.EMPTY;
+			ItemStack stack = contents != null ? contents.getItemStack() : ItemStack.EMPTY;
 
 			if (stack.isEmpty())
-				stack = new ItemStack(Blocks.BARRIER);
+				stack = new ItemStack(Blocks.BARRIER); // for invalid icon
 
-			int timeSinceCreation = updateCounter - line.getUpdatedCounter();
-			if (chatGui.getChatOpen())
-				timeSinceCreation = 0;
+			int timeSinceCreation = updateCounter - line.getAddedTime();
+			if (chatGui.isChatFocused()) timeSinceCreation = 0;
 
 			if (timeSinceCreation < 200) {
-				float chatOpacity = (float) mc.gameSettings.chatOpacity * 0.9f + 0.1f;
-				float fadeOut = MathHelper.clamp((1 - timeSinceCreation / 200f) * 10, 0, 1);
+				float chatOpacity = (float) mc.options.chatOpacity * 0.9f + 0.1f;
+				float fadeOut = Mth.clamp((1 - timeSinceCreation / 200f) * 10, 0, 1);
 				float alpha = fadeOut * fadeOut * chatOpacity;
 
-				int x = chatX + 3 + mc.fontRenderer.getStringWidth(before);
-				int y = chatY - mc.fontRenderer.FONT_HEIGHT * lineHeight;
+				int x = chatX + 3 + mc.font.width(before);
+				int y = chatY - mc.font.lineHeight * lineHeight;
 
 				if (alpha > 0) {
-					alphaValue = alpha;
+					alphaValue = alpha; // TODO LOW PRIO blocks dont fade out properly
 
-					RenderSystem.pushMatrix();
-					RenderSystem.translatef(x - 2, y - 2, -2);
-					RenderSystem.scalef(0.65f, 0.65f, 0.65f);
-					mc.getItemRenderer().renderItemIntoGUI(stack, 0, 0);
-					RenderSystem.popMatrix();
+					PoseStack modelviewPose = RenderSystem.getModelViewStack();
+
+					modelviewPose.pushPose();
+					modelviewPose.translate(x - 2, y - 2, 0);
+					modelviewPose.scale(0.65f, 0.65f, 0.65f);
+					mc.getItemRenderer().renderGuiItem(stack, 0, 0);
+					modelviewPose.popPose();
+
+					RenderSystem.applyModelViewMatrix();
 
 					alphaValue = 1F;
 				}
 			}
 		}
 	}
+
 	public static float alphaValue = 1F;
 }
