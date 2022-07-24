@@ -16,7 +16,7 @@ public class ItemStackMixin {
 
 	@Inject(method = "getTextComponent()Lnet/minecraft/util/text/ITextComponent;", at = @At("RETURN"), cancellable = true)
 	private void getTextComponent(CallbackInfoReturnable<ITextComponent> callbackInfoReturnable) {
-		System.out.println("Stack component created");
+//		System.out.println("Stack component created");
 		callbackInfoReturnable.setReturnValue(ItemChatFeature.createStackComponent((ItemStack) (Object) this,
 				(IFormattableTextComponent) callbackInfoReturnable.getReturnValue()));
 	}
