@@ -79,6 +79,7 @@ public class ItemChatFeature {
 		}
 	}
 
+	@SuppressWarnings("deprecation")
 	public static void linkItem(Player player, ItemStack item) {
 		if(!renderItemsInChat)
 			return;
